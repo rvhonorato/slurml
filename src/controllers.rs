@@ -9,13 +9,13 @@ pub struct TokenRequest {
     pub pass: String,
 }
 
-#[post("/token")]
-pub async fn generate_token(
-    req_body: web::Json<TokenRequest>,
-    config: web::Data<Config>,
-) -> impl Responder {
-    match auth::generate_jwt(&req_body.pass, config) {
-        Ok(token) => token,
-        Err(e) => e,
-    }
-}
+// #[post("/token")]
+// pub async fn generate_token(
+//     req_body: web::Json<TokenRequest>,
+//     config: web::Data<Config>,
+// ) -> impl Responder {
+//     match auth::generate_jwt(&req_body.pass, config) {
+//         Ok(token) => token,
+//         Err(e) => e,
+//     }
+// }

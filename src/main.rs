@@ -3,18 +3,47 @@ use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use env_logger::Env;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
 mod auth;
 mod config;
 mod controllers;
+mod db;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+use bcrypt::{hash, DEFAULT_COST};
+use clap::{Arg, SubCommand};
+use rand::{distributions::Alphanumeric, Rng};
+
+fn main() {
+    // make the logger
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
+
     // load the configuration
     let config = Config::new().expect("Failed to load configuration");
 
-    // make the logger
-    env_logger::init_from_env(Env::default().default_filter_or("info"));
+    let matches = clap::App::new("slurml")
+        .version("1.0")
+        .author("Your Name <your_email@example.com>")
+        .about("Manages usernames and passwords")
+        .subcommand(
+            SubCommand::with_name("gen-credentials").about("Generate a username and password"),
+        )
+        .subcommand(SubCommand::with_name("run").about("Run SLURML"))
+        .get_matches();
+
+    if matches.subcommand_matches("gen-credentials").is_some() {
+        auth::generate_credentials(&config.db_path);
+    } else if matches.subcommand_matches("run").is_some() {
+        let _ = run(config);
+    }
+}
+
+#[actix_web::main]
+async fn run(config: Config) -> std::io::Result<()> {
+    // Initialize the database
+    let pool = db::init_db(&config.db_path)
+        .await
+        .expect("Failed to initialize the database.");
 
     // load TLS keys
     // openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'
@@ -27,9 +56,10 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(config.clone()))
+            .app_data(web::Data::new(pool.clone()))
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
-            .service(controllers::generate_token)
+        // .service(controllers::generate_token)
     })
     // .workers(4)
     .bind_openssl(("127.0.0.1", 8080), builder)?
