@@ -1,22 +1,27 @@
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Pool, Sqlite};
+use sqlx::sqlite::SqlitePool;
+use sqlx::{migrate::MigrateDatabase, Sqlite};
 
-pub async fn init_db(db_path: &str) -> Result<Pool<Sqlite>, sqlx::Error> {
-    let pool = SqlitePoolOptions::new()
-        .connect(db_path)
-        .await
-        .expect("Failed to create pool.");
+const DB_URL: &str = "sqlite://sqlite.db";
 
-    // Execute a SQL command to create the table if it doesn't exist
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS user_accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL
-        )",
+pub async fn init_db() -> sqlx::Pool<sqlx::Sqlite> {
+    if !Sqlite::database_exists(DB_URL).await.unwrap_or(false) {
+        match Sqlite::create_database(DB_URL).await {
+            Ok(_) => println!("Create db success"),
+            Err(error) => panic!("error: {}", error),
+        }
+    }
+    let db = SqlitePool::connect(DB_URL).await.unwrap();
+
+    let _ = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL
+    );",
     )
-    .execute(&pool)
-    .await?;
+    .execute(&db)
+    .await
+    .unwrap();
 
-    Ok(pool)
+    db
 }
