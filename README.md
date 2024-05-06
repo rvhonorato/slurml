@@ -1,5 +1,9 @@
 # slurml
 
+![GitHub License](https://img.shields.io/github/license/rvhonorato/slurml)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/64bf3bb285e44161ae19b0344c0d4ff3)](https://app.codacy.com/gh/rvhonorato/slurml/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![test](https://github.com/rvhonorato/slurml/actions/workflows/test.yml/badge.svg)](https://github.com/rvhonorato/slurml/actions/workflows/test.yml)
+
 `slurml` is a RESTful service layer designed to enhance the functionality and security of small in-house HPC systems. Operating directly from a login node, `slurml` exposes HTTP endpoints that allow users to submit and manage payloads for execution via the Slurm scheduler without needing direct access to the computing nodes.
 
 > 🚧🚧🚧🚧🚧🚧
