@@ -3,21 +3,7 @@ use actix_web::HttpRequest;
 use rand::{distributions::Alphanumeric, Rng};
 use sqlx::{Pool, Sqlite};
 
-pub fn generate_password(n: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(n)
-        .map(char::from)
-        .collect()
-}
-
 use std::time::{SystemTime, UNIX_EPOCH};
-// Helper function to calculate expiration for token
-pub fn calculate_expiration() -> u64 {
-    let now = SystemTime::now();
-    let since_the_epoch = now.duration_since(UNIX_EPOCH).unwrap_or_default();
-    since_the_epoch.as_secs() + 31_536_000 // 1 year
-}
 
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
@@ -32,6 +18,21 @@ use crate::models::User;
 pub struct Claims {
     sub: i32, // Subject (user id)
     exp: u64, // Expiration time
+}
+
+pub fn generate_password(n: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(n)
+        .map(char::from)
+        .collect()
+}
+
+// Helper function to calculate expiration for token
+pub fn calculate_expiration() -> u64 {
+    let now = SystemTime::now();
+    let since_the_epoch = now.duration_since(UNIX_EPOCH).unwrap_or_default();
+    since_the_epoch.as_secs() + 31_536_000 // 1 year
 }
 
 pub fn hash_password(password: &[u8]) -> Result<String, argon2::password_hash::Error> {
@@ -125,5 +126,93 @@ pub async fn validate_user(
         None => Err(jsonwebtoken::errors::Error::from(
             jsonwebtoken::errors::ErrorKind::InvalidToken,
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calculate_expiration() {
+        let expiration = calculate_expiration();
+        assert!(expiration > 0);
+    }
+
+    #[test]
+    fn test_hash_password() {
+        let password = "password";
+        let hashed_password = hash_password(password.as_bytes()).unwrap();
+        assert_ne!(hashed_password, password);
+    }
+
+    #[test]
+    fn test_verify_password() {
+        let password = "password".as_bytes();
+        let hashed_password = hash_password(password).unwrap();
+        assert!(verify_password(&hashed_password, password).unwrap());
+    }
+
+    #[test]
+    fn test_generate_token() {
+        let user_id = 1;
+        let exp = calculate_expiration();
+        let jwt_key = b"secret_key";
+        let token = generate_token(&user_id, exp, jwt_key).unwrap();
+        assert!(!token.is_empty());
+    }
+
+    #[actix_web::test]
+    async fn test_validate_token() {
+        let user_id = 1;
+        let exp = calculate_expiration();
+        let jwt_key = b"secret_key";
+        let token = generate_token(&user_id, exp, jwt_key).unwrap();
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            last_seen TEXT,
+            since TEXT
+        );",
+        )
+        .execute(&pool)
+        .await
+        .expect("Failed to create table");
+
+        // Add an user
+        let password = "password".as_bytes();
+        let hashed_password = hash_password(password).unwrap();
+        let _ = sqlx::query("INSERT INTO users (username, password_hash) VALUES ('test_user', $1)")
+            .bind(&hashed_password)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let result = validate_token(&token, jwt_key, &pool).await;
+        assert!(result.is_ok());
+    }
+
+    // #[actix_web::test]
+    // async fn test_validate_user() {
+    //     let req = HttpRequest::default();
+    //     let jwt_key = b"secret_key";
+    //     let db = sqlx::sqlite::SqlitePoolOptions::new()
+    //         .connect("sqlite::memory:")
+    //         .await
+    //         .unwrap();
+    //     let result = validate_user(req, jwt_key, &db).await;
+    //     assert!(result.is_ok());
+    // }
+
+    #[test]
+    fn test_generate_password() {
+        let password = generate_password(8);
+        assert_eq!(password.len(), 8);
     }
 }
