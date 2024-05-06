@@ -13,7 +13,7 @@ actix-web = { version = "4.0", features = ["openssl"] }
 # Security and encryption
 openssl = "0.10.38"
 jsonwebtoken = "7.2.0"
-bcrypt = "0.10.0"
+argon2 = "0.5.3"
 
 # Asynchronous runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -24,7 +24,6 @@ serde_json = "1.0"
 
 # Database and environment configuration
 sqlx = { version = "0.6", features = ["runtime-actix-native-tls", "sqlite"] }
-dotenv = "0.15.0"
 
 # Logging
 env_logger = "0.9.0"

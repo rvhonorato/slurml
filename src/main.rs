@@ -3,68 +3,48 @@ use crate::config::Config;
 use env_logger::Env;
 
 mod auth;
+mod auth_controller;
 mod config;
-mod controllers;
 mod db;
+mod models;
+mod responses;
 mod slurml;
 mod utils;
 
-use clap::{Arg, SubCommand};
+use actix_web::middleware::Logger;
+use actix_web::{web, App, HttpServer};
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
-#[tokio::main]
-async fn main() {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("info"));
 
-    let db = db::init_db().await;
-
+    // Load the configuration
     let config = Config::new().expect("Failed to load configuration");
 
-    let matches = clap::App::new("slurml")
-        .version("1.0")
-        .author("Your Name <your_email@example.com>")
-        .about("Manages usernames and passwords")
-        .subcommand(
-            SubCommand::with_name("gen-credentials").about("Generate a username and password"),
-        )
-        .subcommand(
-            SubCommand::with_name("auth")
-                .about("Authenticate a username and password")
-                .arg(Arg::with_name("username").required(true))
-                .arg(Arg::with_name("password").required(true)),
-        )
-        .subcommand(
-            SubCommand::with_name("delete-user")
-                .about("Delete a user")
-                .arg(Arg::with_name("username").required(true)),
-        )
-        .subcommand(SubCommand::with_name("run").about("Run SLURML"))
-        .get_matches();
+    // Initialize the database
+    let db = db::init_db().await;
 
-    // =======================================================================================
-    if matches.subcommand_matches("gen-credentials").is_some() {
-        auth::generate_credentials(db.clone()).await;
-    } else if matches.subcommand_matches("run").is_some() {
-        let _ = slurml::run(db, config).await;
-    }
-    // =======================================================================================
-    else if let Some(matches) = matches.subcommand_matches("auth") {
-        let username = matches.value_of("username").unwrap();
-        let password = matches.value_of("password").unwrap();
-        let authenticated = auth::authenticate_user(&db, username, password)
-            .await
-            .expect("Failed to authenticate user");
-        println!("Authenticated: {}", authenticated);
-    }
-    // =======================================================================================
-    else if let Some(matches) = matches.subcommand_matches("delete-user") {
-        let username = matches.value_of("username").unwrap();
-        let deleted = auth::delete_user(db, username)
-            .await
-            .expect("Failed to delete user");
-        println!("Deleted: {}", deleted);
-    }
-    // =======================================================================================
-    else {
-        println!("No subcommand specified");
-    }
+    // load TLS keys
+    // openssl req -x509 -newkey rsa:4096 -nodes -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'
+    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    builder
+        .set_private_key_file("key.pem", SslFiletype::PEM)
+        .unwrap();
+    builder.set_certificate_chain_file("cert.pem").unwrap();
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(config.clone()))
+            .app_data(web::Data::new(db.clone()))
+            .wrap(Logger::default())
+            .wrap(Logger::new("%a %{User-Agent}i"))
+            .service(auth_controller::index)
+            .service(auth_controller::login)
+            .service(auth_controller::upload)
+    })
+    // .workers(4)
+    .bind_openssl(("127.0.0.1", 8080), builder)?
+    .run()
+    .await
 }
