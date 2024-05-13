@@ -1,16 +1,26 @@
-use crate::config::Config;
-
 use env_logger::Env;
 
-mod auth_controller;
-mod auth_service;
-mod config;
-mod db;
-mod models;
-mod responses;
-mod slurml;
-mod utils;
+mod controllers {
+    pub mod auth_controller;
+}
+mod services {
+    pub mod auth_service;
+}
+mod utils {
+    pub mod config;
+    pub mod db;
+    pub mod tools;
+}
+mod models {
+    pub mod users;
+}
+mod responses {
+    pub mod auth_responses;
+}
 
+use crate::controllers::auth_controller;
+use crate::utils::config;
+use crate::utils::db;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -20,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("info"));
 
     // Load the configuration
-    let config = Config::new().expect("Failed to load configuration");
+    let config = config::Config::new().expect("Failed to load configuration");
 
     // Initialize the database
     let db = db::init_db().await;

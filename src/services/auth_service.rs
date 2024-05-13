@@ -1,14 +1,15 @@
 use sqlx::{Pool, Sqlite};
 
+use crate::models::users::User;
+use crate::responses;
 use crate::utils;
-use crate::{models::User, responses};
 
 pub async fn register_user(
-    registration_info: responses::RegistrationRequest,
+    registration_info: responses::auth_responses::RegistrationRequest,
     db: &Pool<Sqlite>,
 ) -> Result<(User, String), sqlx::Error> {
-    let password = utils::generate_password(16);
-    let password_hash = utils::hash_password(password.as_bytes()).unwrap();
+    let password = utils::tools::generate_password(16);
+    let password_hash = utils::tools::hash_password(password.as_bytes()).unwrap();
 
     let user = User {
         id: 0,
@@ -25,7 +26,7 @@ pub async fn register_user(
 }
 
 pub async fn login_user(
-    login_info: responses::LoginRequest,
+    login_info: responses::auth_responses::LoginRequest,
     db: &Pool<Sqlite>,
     jwt_key: &[u8],
 ) -> Result<String, jsonwebtoken::errors::Error> {
@@ -36,7 +37,8 @@ pub async fn login_user(
     match user_opt {
         Ok(user) => {
             let password_hash = &user.password_hash;
-            let password_verification = utils::verify_password(password_hash, password.as_bytes());
+            let password_verification =
+                utils::tools::verify_password(password_hash, password.as_bytes());
             eprintln!("Password verification: {:?}", password_verification);
             if password_verification.is_err() || !password_verification.unwrap() {
                 return Err(jsonwebtoken::errors::Error::from(
@@ -44,7 +46,11 @@ pub async fn login_user(
                 ));
             }
 
-            match utils::generate_token(&user.id, utils::calculate_expiration(), jwt_key) {
+            match utils::tools::generate_token(
+                &user.id,
+                utils::tools::calculate_expiration(),
+                jwt_key,
+            ) {
                 Ok(token) => {
                     if let Err(e) = user.update_last_seen(db).await {
                         eprintln!("Failed to update last seen: {}", e);

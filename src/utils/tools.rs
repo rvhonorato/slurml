@@ -12,7 +12,7 @@ use argon2::{
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-use crate::models::User;
+use crate::models::users::User;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
