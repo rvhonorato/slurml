@@ -2,7 +2,6 @@ use crate::config::Config;
 
 use env_logger::Env;
 
-mod auth;
 mod auth_controller;
 mod auth_service;
 mod config;
