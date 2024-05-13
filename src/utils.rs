@@ -75,7 +75,7 @@ pub async fn validate_token(
     token: &str,
     jwt_key: &[u8],
     pool: &sqlx::Pool<sqlx::Sqlite>,
-) -> Result<bool, jsonwebtoken::errors::Error> {
+) -> Result<User, jsonwebtoken::errors::Error> {
     println!("Validating token: {}", token);
     let validation = Validation::default();
     match decode::<Claims>(token, &DecodingKey::from_secret(jwt_key), &validation) {
@@ -89,28 +89,24 @@ pub async fn validate_token(
                 println!("User is empty!?");
                 return Err(jsonwebtoken::errors::ErrorKind::InvalidIssuer.into());
             }
+            Ok(user)
         }
-        Err(e) => {
-            // println!("Error!: {:?}", e);
-            return Err(e);
-        }
-    };
-
-    Ok(true)
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn validate_user(
     req: HttpRequest,
     jwt_key: &[u8],
     db: &Pool<Sqlite>,
-) -> Result<bool, jsonwebtoken::errors::Error> {
+) -> Result<User, jsonwebtoken::errors::Error> {
     match req.headers().get(header::AUTHORIZATION) {
         Some(header_values) => match header_values.to_str() {
             Ok(auth_str) => {
                 if auth_str.starts_with("Bearer ") {
                     let token = auth_str.trim_start_matches("Bearer ");
                     match validate_token(token, jwt_key, db).await {
-                        Ok(valid) => Ok(valid),
+                        Ok(user) => Ok(user),
                         Err(err) => Err(err),
                     }
                 } else {
