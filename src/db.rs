@@ -1,6 +1,7 @@
 use sqlx::sqlite::SqlitePool;
 use sqlx::{migrate::MigrateDatabase, Sqlite};
 
+use crate::models;
 use crate::utils;
 
 const DB_URL: &str = "sqlite://sqlite.db";
@@ -20,40 +21,28 @@ pub async fn init_db() -> sqlx::Pool<sqlx::Sqlite> {
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         last_seen TEXT,
-        since TEXT
+        since TEXT,
+        role TEXT
     );",
     )
     .execute(&db)
     .await
     .expect("Failed to create table");
 
-    if let Some(password) = add_admin(&db).await {
-        println!("Admin password: {}", password);
-    } else {
-        println!("Admin user already exists");
+    // Add a new admin user
+    let user = models::User {
+        id: 0,
+        username: "admin".to_string(),
+        password_hash: utils::hash_password("admin".as_bytes()).unwrap(),
+        last_seen: None,
+        since: None,
+        role: "admin".to_string(),
+    };
+
+    match user.create(&db).await {
+        Ok(_) => println!("Admin user created"),
+        Err(_) => println!("Admin user already exists"),
     }
 
     db
-}
-
-async fn add_admin(db: &sqlx::Pool<sqlx::Sqlite>) -> Option<String> {
-    let admin_result = sqlx::query("SELECT * FROM users WHERE username = 'admin'")
-        .fetch_optional(db)
-        .await
-        .unwrap();
-
-    let _password = utils::generate_password(42);
-    let password = "admin".to_string();
-    let password_hash = utils::hash_password(password.as_bytes()).unwrap();
-
-    if admin_result.is_none() {
-        let _ = sqlx::query("INSERT INTO users (username, password_hash) VALUES ('admin', $1)")
-            .bind(&password_hash)
-            .execute(db)
-            .await
-            .unwrap();
-        Some(password)
-    } else {
-        None
-    }
 }
