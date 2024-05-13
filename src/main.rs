@@ -4,6 +4,7 @@ use env_logger::Env;
 
 mod auth;
 mod auth_controller;
+mod auth_service;
 mod config;
 mod db;
 mod models;
@@ -41,7 +42,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(Logger::new("%a %{User-Agent}i"))
             .service(auth_controller::index)
             .service(auth_controller::login)
-            .service(auth_controller::upload)
+            .service(auth_controller::inspect)
+            .service(auth_controller::register)
     })
     // .workers(4)
     .bind_openssl(("127.0.0.1", 8080), builder)?
