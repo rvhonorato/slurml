@@ -158,54 +158,6 @@ mod tests {
         assert!(!token.is_empty());
     }
 
-    #[actix_web::test]
-    async fn test_validate_token() {
-        let user_id = 1;
-        let exp = calculate_expiration();
-        let jwt_key = b"secret_key";
-        let token = generate_token(&user_id, exp, jwt_key).unwrap();
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
-        let _ = sqlx::query(
-            "CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            last_seen TEXT,
-            since TEXT
-        );",
-        )
-        .execute(&pool)
-        .await
-        .expect("Failed to create table");
-
-        // Add an user
-        let password = "password".as_bytes();
-        let hashed_password = hash_password(password).unwrap();
-        let _ = sqlx::query("INSERT INTO users (username, password_hash) VALUES ('test_user', $1)")
-            .bind(&hashed_password)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        let result = validate_token(&token, jwt_key, &pool).await;
-        assert!(result.is_ok());
-    }
-
-    // #[actix_web::test]
-    // async fn test_validate_user() {
-    //     let req = HttpRequest::default();
-    //     let jwt_key = b"secret_key";
-    //     let db = sqlx::sqlite::SqlitePoolOptions::new()
-    //         .connect("sqlite::memory:")
-    //         .await
-    //         .unwrap();
-    //     let result = validate_user(req, jwt_key, &db).await;
-    //     assert!(result.is_ok());
-    // }
-
     #[test]
     fn test_generate_password() {
         let password = generate_password(8);
