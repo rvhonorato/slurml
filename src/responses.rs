@@ -5,7 +5,7 @@ pub struct TokenRequest {
     pub username: String,
     pub password: String,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
@@ -24,4 +24,9 @@ pub struct Token {
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegistrationRequest {
+    pub username: String,
 }
